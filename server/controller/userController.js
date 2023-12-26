@@ -17,6 +17,7 @@ exports.createUser = asyncHandler(async (req, res, next) => {
     });
   }
 });
+
 exports.bookVisit = asyncHandler(async (req, res, next) => {
   const { email, date } = req.body;
   const { id } = req.params;
@@ -41,6 +42,97 @@ exports.bookVisit = asyncHandler(async (req, res, next) => {
       });
       res.send("Your visit to the property is booked successfuly");
     }
+  } catch (error) {
+    throw new Error(error.message);
+  }
+});
+
+exports.AllBookings = asyncHandler(async (req, res, next) => {
+  const { email } = req.body;
+  try {
+    const bookings = await prisma.user.findUnique({
+      where: { email },
+      select: { bookedVisit: true },
+    });
+    res.status(200).send(bookings);
+  } catch (error) {
+    throw new Error(error.message);
+  }
+});
+
+exports.cancelBooking = asyncHandler(async (req, res, next) => {
+  const { email, date } = req.body;
+  const { id } = req.params;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: email },
+      select: { bookedVisit: true },
+    });
+    const index = user.bookedVisit.findIndex((visit) => visit.id === id);
+    if (index === -1) {
+      res.status(400).send("Booking not found");
+    } else {
+      user.bookedVisit.splice(index, 1);
+      await prisma.user.update({
+        where: { email },
+        data: {
+          bookedVisit: user.bookedVisit,
+        },
+      });
+      res.send("Booking Canceled");
+    }
+  } catch (error) {
+    throw new Error(error.message);
+  }
+});
+
+exports.favProperty = asyncHandler(async (req, res, next) => {
+  const { email } = req.body;
+  const { favid } = req.params;
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+    if (user.favPropertiesID.includes(favid)) {
+      const update = await prisma.user.update({
+        where: { email },
+        data: {
+          favPropertiesID: {
+            set: user.favPropertiesID.filter((id) => id !== favid),
+          },
+        },
+      });
+      res.send("removed from favroiutes");
+    } else {
+      const update = await prisma.user.update({
+        where: { email },
+        data: {
+          favPropertiesID: {
+            push: favid,
+          },
+        },
+      });
+      res.status(200).send({ message: "Added to favoiurite", user: update });
+    }
+  } catch (error) {
+    throw new Error(error.message);
+  }
+});
+
+exports.getAllFav = asyncHandler(async (req, res, next) => {
+  const { email } = req.body;
+  try {
+    const fav = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+      select: {
+        favPropertiesID: true,
+      },
+    });
+    res.status(200).send(fav);
   } catch (error) {
     throw new Error(error.message);
   }
